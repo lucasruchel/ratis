@@ -58,18 +58,28 @@ public final class CounterClient {
 
     //use a executor service with 10 thread to send INCREMENT commands
     // concurrently
-    ExecutorService executorService = Executors.newFixedThreadPool(10);
+    ExecutorService executorService = Executors.newFixedThreadPool(1);
 
-    //send INCREMENT commands concurrently
-    System.out.printf("Sending %d increment command...%n", increment);
-    for (int i = 0; i < increment; i++) {
-      executorService.submit(() ->
-          raftClient.io().send(Message.valueOf("INCREMENT")));
+    long startTime = System.currentTimeMillis();
+
+    int nIncrements = 0;
+
+//    Executa por 5 minutos - 1000*60 == 1m
+    while (((startTime - System.currentTimeMillis()) / 60000) < 5){
+      RaftClientReply reply = raftClient.io().send(Message.valueOf("INCREMENT"));
+      nIncrements++;
+      System.out.printf("Enviado n:%s - reply logIndex %s\n",nIncrements,reply.getLogIndex());
     }
+
+
 
     //shutdown the executor service and wait until they finish their work
     executorService.shutdown();
     executorService.awaitTermination(increment * 500L, TimeUnit.MILLISECONDS);
+
+
+    // Exibe o numero de increments enviados aos processos
+    System.out.printf("Enviado %s requests\n",nIncrements);
 
     //send GET command and print the response
     RaftClientReply count = raftClient.io().sendReadOnly(Message.valueOf("GET"));

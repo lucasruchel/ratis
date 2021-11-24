@@ -34,10 +34,16 @@ public final class CounterCommon {
   public static final List<RaftPeer> PEERS;
 
   static {
-    List<RaftPeer> peers = new ArrayList<>(3);
-    peers.add(RaftPeer.newBuilder().setId("n1").setAddress("127.0.0.1:6000").build());
-    peers.add(RaftPeer.newBuilder().setId("n2").setAddress("127.0.0.1:6001").build());
-    peers.add(RaftPeer.newBuilder().setId("n3").setAddress("127.0.0.1:6002").build());
+    List<RaftPeer> peers = new ArrayList<>(8);
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.101").setAddress("192.168.248.101:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.102").setAddress("192.168.248.102:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.103").setAddress("192.168.248.103:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.104").setAddress("192.168.248.104:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.105").setAddress("192.168.248.105:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.106").setAddress("192.168.248.106:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.107").setAddress("192.168.248.107:6000").build());
+    peers.add(RaftPeer.newBuilder().setId("192.168.248.108").setAddress("192.168.248.108:6000").build());
+
     PEERS = Collections.unmodifiableList(peers);
   }
 
