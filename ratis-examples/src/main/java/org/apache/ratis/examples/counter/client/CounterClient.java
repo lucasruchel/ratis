@@ -24,9 +24,13 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.counter.CounterCommon;
 import org.apache.ratis.grpc.GrpcFactory;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -51,40 +55,56 @@ public final class CounterClient {
   public static void main(String[] args)
       throws IOException, InterruptedException {
     //indicate the number of INCREMENT command, set 10 if no parameter passed
-    int increment = args.length > 0 ? Integer.parseInt(args[0]) : 10;
+    int nroClients = args.length > 0 ? Integer.parseInt(args[0]) : 10;
 
-    //build the counter cluster client
-    RaftClient raftClient = buildClient();
+    //send GET command and print the response
+    RaftClient getCommitClient = buildClient();
 
-    //use a executor service with 10 thread to send INCREMENT commands
+    //use a executor service with nroClients thread to send INCREMENT commands
     // concurrently
-    ExecutorService executorService = Executors.newFixedThreadPool(1);
+    ExecutorService executorService = Executors.newFixedThreadPool(nroClients);
 
-    long startTime = System.currentTimeMillis();
+//    Envia continuamente requisições para serem propagadas
+    for (int i = 0; i < nroClients; i++){
+      executorService.submit(() -> {
+        //build the counter cluster client
+        RaftClient raftClient = buildClient();
 
-    int nIncrements = 0;
 
-//    Executa por 5 minutos - 1000*60 == 1m
-    while (((startTime - System.currentTimeMillis()) / 60000) < 5){
-      RaftClientReply reply = raftClient.io().send(Message.valueOf("INCREMENT"));
-      nIncrements++;
-      System.out.printf("Enviado n:%s - reply logIndex %s\n",nIncrements,reply.getLogIndex());
+        int nIncrements = 0;
+        long id = Thread.currentThread().getId();
+        long startTime = System.currentTimeMillis();
+//        Executa por 5 minutos
+        while (System.currentTimeMillis() - startTime < (60000*5)){
+          try {
+//            Envia comando à máquina de estados do Raft
+            RaftClientReply reply = raftClient.io().send(Message.valueOf("INCREMENT"));
+            long logIndex = reply.getLogIndex();
+
+//            Garante que entrada do log foi replicada em todos os processos raft
+            RaftClientReply replyCommit = raftClient.io().watch(logIndex, RaftProtos.ReplicationLevel.MAJORITY_COMMITTED);
+
+            System.out.printf("%s:Enviado - commited logIndex %s\n",id,logIndex);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
+      });
     }
-
 
 
     //shutdown the executor service and wait until they finish their work
     executorService.shutdown();
-    executorService.awaitTermination(increment * 500L, TimeUnit.MILLISECONDS);
+    executorService.awaitTermination(6, TimeUnit.MINUTES);
+    executorService.shutdownNow();
 
 
-    // Exibe o numero de increments enviados aos processos
-    System.out.printf("Enviado %s requests\n",nIncrements);
+//    RaftClientReply count = getCommitClient.io().sendReadOnly(Message.valueOf("GET"));
+//    String response = count.getMessage().getContent().toString(Charset.defaultCharset());
+//    count.getCommitInfos().forEach(
+//            commitInfoProto -> System.out.println("Commited: " + commitInfoProto))
+//    ;
 
-    //send GET command and print the response
-    RaftClientReply count = raftClient.io().sendReadOnly(Message.valueOf("GET"));
-    String response = count.getMessage().getContent().toString(Charset.defaultCharset());
-    System.out.println(response);
   }
 
   /**
@@ -98,6 +118,7 @@ public final class CounterClient {
     RaftClient.Builder builder = RaftClient.newBuilder()
         .setProperties(raftProperties)
         .setRaftGroup(CounterCommon.RAFT_GROUP)
+            .setRetryPolicy(RetryPolicies.retryUpToMaximumCountWithFixedSleep(3, TimeDuration.ONE_SECOND))
         .setClientRpc(
             new GrpcFactory(new Parameters())
                 .newRaftClientRpc(ClientId.randomId(), raftProperties));
