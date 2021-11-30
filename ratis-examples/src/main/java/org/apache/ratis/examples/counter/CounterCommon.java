@@ -44,6 +44,11 @@ public final class CounterCommon {
     peers.add(RaftPeer.newBuilder().setId("192.168.248.107").setAddress("192.168.248.107:6000").build());
     peers.add(RaftPeer.newBuilder().setId("192.168.248.108").setAddress("192.168.248.108:6000").build());
 
+//    peers.add(RaftPeer.newBuilder().setId("n1").setAddress("localhost:6000").build());
+//    peers.add(RaftPeer.newBuilder().setId("n2").setAddress("localhost:6001").build());
+//    peers.add(RaftPeer.newBuilder().setId("n3").setAddress("localhost:6002").build());
+
+
     PEERS = Collections.unmodifiableList(peers);
   }
 
